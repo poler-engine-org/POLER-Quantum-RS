@@ -1,0 +1,15 @@
+[workspace]
+resolver = "2"
+members = ["crates/pqw"]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2021"
+license = "MIT"
+repository = "https://github.com/Kotokvit/POLER-Quantum-RS"
+authors = ["Kotokvit <213886740+Kotokvit@users.noreply.github.com>"]
+
+[profile.release]
+lto = true
+codegen-units = 1
+strip = true
