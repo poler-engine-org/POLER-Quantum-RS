@@ -280,10 +280,45 @@ elapsed   : 17.995 мс (сквозной цикл в RAM, диск не зат�
 `--text` или `--stdin`; флаги `--dim/--epsilon/--shots/--steps/--seed/
 --eta0/--beta/--gamma/--decay/--json/--out`.
 
+### `pqc inspect` — чтение графов, бинарников и крипто-разведка (v0.3.1)
+
+Инспекция **любого** файла: чем он является, есть ли внутри шифрование и
+какова полная логика данных. Контейнеры `.pqw`/`.poler` разбираются до
+побайтовой карты; файлы без заголовка, валидные как Packed4 (все 2-битные
+пары ≠ `0b11`), декодируются как сырые тритовые пакеты:
+
+```console
+$ pqc inspect cpu_phase_fingerprint.bin --graph
+FORMAT
+  kind       : raw-packed4 (candidate)
+  d_pol      : 4096
+  nnz        : 10 (8 × −1, 2 × +1), density 0.244%
+CRYPTO RECON
+  entropy    : 0.0984 / 8.0000 bits/byte
+  chi2       : 256033.0 (uniform band 255 ± 352) — NOT uniform
+  verdict    : structured — шифрования НЕТ, данные полностью читаемы
+ARCS
+     469  0x01d5  -1   p̂ = -1.0000  θ̂ = 3.1416
+     ...
+GRAPH (LENS: рёбра = соседние дуги u_k → u_k+1)
+  nodes 10, edges 9, components 1, density 0.244%
+
+$ pqc inspect state.pqw --all    # карта + hex + все дуги + граф + строки
+$ pqc inspect blob.bin --json    # машинно-читаемый отчёт (zero-dep JSON)
+$ pqc inspect state.pqw --dot lens.dot   # Graphviz: dot -Tsvg lens.dot
+```
+
+Детекция шифра — без ключа: энтропия ≈ 8 бит/байт + χ² в полосе
+равномерности + отсутствие сигнатур контейнеров → `encrypted-like`
+(структуры не видно); низкая энтропия → `structured` (читаемо);
+промежуток → `compressed`. Для `.pqw`: header checksum FNV-1a64,
+payload digest SHA-256 Trunc-24 (OK/FAIL), McWeeny-невязка записанная
+и пересчитанная по дугам.
+
 ## Тесты
 
-`cargo test --workspace` — **278 тестов + 9 doc-тестов = 287**
-(104 на `pqw` + 183 на `pqc`, включая кросс-тест с Qiskit):
+`cargo test --workspace` — **312 тестов**
+(205 на `pqc`, включая 7 doc-тестов + 107 на `pqw`, включая 3 doc):
 
 - известные векторы SHA-256 (NIST) и FNV-1a64;
 - **golden-layout**: побайтовая проверка всех смещений (`0x00..0x80` + payload);
@@ -298,7 +333,10 @@ elapsed   : 17.995 мс (сквозной цикл в RAM, диск не зат�
 - **статистика Born** (14): равномерность и согласие с теорией в 5σ,
   product-движок против statevector-моментов, фон = Binomial(d, ½);
 - **мост pqw → pqc** (12): LENS-фон, McWeeny-заострение, порча payload,
-  mmap end-to-end, побитовая воспроизводимость;
+  mmap-сценарии end-to-end;
+- **inspect** (25): детект v1/v2/raw-Packed4/opaque, точные позиции дуг
+  сырого пакета, вердикты structured/encrypted-like, порча v2-payload
+  с сохранением nnz → digest FAIL, DOT и JSON собственным парсером;
 - ГПСЧ: потоки, jump, равномерность, покрытие всех 64 бит;
 - **zero-storage стриминг** (7): конвейер текст → контейнер → Born → QCM
   на обоих движках, латентность d=512 < 2 мс, детерминизм, CZ-инвариант;
@@ -353,6 +391,10 @@ elapsed   : 17.995 мс (сквозной цикл в RAM, диск не зат�
   коммутатор Фокиана, NO_HITS-барьер) + `pqc::learn::ActiveInference`
   (η(t) = η₀·e^(−βΣ), γ = 0.5, McWeeny K = 5, строгая Π_Λ) + CLI
   `pqc stream` с zero-dep HTTP; сквозной цикл d=512 ≈ 0.32 мс
+- **v0.3.1 (здесь)** — ✅ `pqc inspect`: чтение графов, бинарников и
+  крипто-разведка — детект форматов (v1/v2/raw-Packed4/opaque),
+  энтропия + χ² + сигнатуры шифро-контейнеров, побайтовая карта
+  заголовка, декод дуг, LENS-граф (CSR/DOT/JSON/ASCII), целостность
 - **дальше** — блочный RLE топологии для sparse-Packed4, веса
   `J = A − Aᵀ` (верхний треугольник), обучаемый паттерн LENS-рёбер,
   обрезка мёртвых дуг (decay ниже порога), FFI/gym-интерфейс петли

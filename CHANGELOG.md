@@ -4,6 +4,66 @@
 Формат следует [Keep a Changelog](https://keepachangelog.com/ru/1.1.0/),
 версионирование — [SemVer](https://semver.org/lang/ru/).
 
+## [0.3.1] — pqc inspect + RQ7-Alpha: AOT SyntaxUnfolder, CPU Phase Fingerprint, Deep/Internet Training
+
+### Добавлено (RQ7-Alpha, от 6c4d4cd)
+
+- **`pqc::syntax_unfolder`** — детерминированный AOT-кристаллизатор:
+  безветвистая (branchless, zero-alloc) развертка фазового вектора p*
+  в символьный поток через предвычисленную таблицу морфемных
+  кристаллов 256 × 4 Б (L1 cache, генерируется в `build.rs`);
+- **CLI `pqc unfurl <file>`** — AOT phase unfurling to syntax;
+- **Чекпоинты обучения**: `master_learned_state.pqw` (24 095 файлов,
+  20.7 мин CPU) и `internet_master_state.pqw` (краулер RFC/kernel/Wikipedia),
+  телеметрия `*_training_telemetry.log` (~45К строк);
+- **`cpu_phase_fingerprint.bin`** — сырой Packed4-снимок фазового
+  состояния (1024 Б, d_pol=4096); `graph_visualizer.py` — web-визуализатор;
+- `docs/training_and_evolution.md` — хроника 5-уровневой лестницы обучения.
+
+### Добавлено
+
+**Модуль `pqc::inspect` (полная «логика данных» произвольного файла):**
+
+- Детект формата: контейнеры `POLER_QW` (v1) / `POLER_Q2` (v2),
+  **raw-Packed4 кандидат** (файл без заголовка, все 2-битные пары ≠ 0b11,
+  непечатаемый фон → d_pol = 4 × размер), `opaque` для остального;
+- **Крипто-разведка**: Шенноновская энтропия (глобально + по блокам 64 Б),
+  χ² против равномерного (df = 255), словарь сигнатур шифро-/архиво-
+  контейнеров (OpenSSL `Salted__`, GPG, age, PEM, ZIP, GZIP, 7z, xz,
+  zstd, PNG/JPEG/PDF/ELF/SQLite); вердикты `structured` / `compressed` /
+  `encrypted-like` — «есть ли шифр» видно без ключа;
+- **Побайтовая карта заголовка** `.pqw` (17 полей: magic, версии,
+  гиперпараметры, digest, смещения секций, nnz, flags, checksum FNV-1a64);
+- **Декод дуг**: v1 (трит + σ → p̂ → θ̂) и v2/raw (Packed4 → ±1);
+  Born-энтропия `Σ h₂((1−p̂)/2)` и теоретический QCM `1 − H/d`;
+- **Граф LENS**: рёбра = соседние хранимые дуги `u_k → u_{k+1}`
+  (семантика `Entanglement::FromTopology`); вывод CSR-текстом,
+  Graphviz DOT (`--dot`), JSON (`--json`) и ASCII-матрицей при `d_pol ≤ 64`;
+- **Целостность**: header checksum (валидирована ридером), payload digest
+  SHA-256 Trunc-24 (OK/FAIL), McWeeny-невязка записанная и пересчитанная;
+- hex-дамп с ASCII-колонкой (`--hex N|all`), извлечение ASCII-строк
+  (`--strings`), `--raw-dim N` — принудительная трактовка raw-Packed4.
+
+**CLI `pqc inspect`:**
+
+```console
+$ pqc inspect cpu_phase_fingerprint.bin --graph
+FORMAT: raw-packed4 (candidate), d_pol=4096, nnz=10 (8 × −1, 2 × +1)
+CRYPTO RECON: entropy 0.098/8.0, chi2 256033 (NOT uniform) — structured,
+  шифрования НЕТ; ARCS: 469, 900, 1404, 1568(+), 2436, 2732, 2796,
+  3353, 3603(+), 3622; GRAPH: nodes 10, edges 9, density 0.244%
+$ pqc inspect state.pqw --all      # карта + hex + все дуги + граф + строки
+$ pqc inspect blob.bin --json      # машинно-читаемый отчёт
+```
+
+### Тесты
+
+- 25 новых (15 unit + 9 integration + 1 doc): детект четырёх видов файлов,
+  точные позиции raw-Packed4 дуг, вердикты structured/encrypted-like
+  (детерминированный xorshift-поток), порча v2-payload с сохранением nnz
+  → digest FAIL, DOT-файл с рёбрами, JSON собственным zero-dep парсером.
+  Всего в воркспейсе 314 (pqc 207 + pqw 107), против 287 в v0.3.0.
+
 ## [0.3.0] — RQ6: Zero-Storage Streaming Learning Engine (Active Inference)
 
 ### Добавлено
