@@ -3,14 +3,15 @@
 **`.poler` / `.pqw` — POLER Quantum Weights + POLER Quantum Core.** Бинарный формат
 фазовых весов POLER[Ψ] и вычислительное ядро на Rust — экосистема
 [POLER-Quantum](https://github.com/Kotokvit/POLER-Quantum).
-Кирпичи **RQ1, RQ3, RQ4, RQ5** из `rust-core-roadmap.md`: контейнер состояния
+Кирпичи **RQ1, RQ3, RQ4, RQ5, RQ6** из `rust-core-roadmap.md`: контейнер состояния
 (`pqw`), statevector-движок с Born-сэмплированием (`pqc`), zero-storage
-стриминг, χ²-паритет с Qiskit и петля фазового обучения Born.
+стриминг, χ²-паритет с Qiskit, петля фазового обучения Born и движок
+потокового Active Inference.
 
 Оба крейта собираются **без единой внешней зависимости** — ни serde, ни
 memmap2, ни faer, ни rand: SHA-256 (FIPS 180-4), FNV-1a64, mmap,
-xoshiro256++ и SIMD-ядра реализованы внутри, финальный бинарник
-автономен и воспроизводим.
+xoshiro256++, HTTP-клиент и SIMD-ядра реализованы внутри, финальный
+бинарник автономен и воспроизводим.
 
 ## Почему не GGUF / SafeTensors / .pt
 
@@ -143,6 +144,42 @@ opt.run(&mut ansatz, quadratic_target(&target), 10)?;  // сходимость
 (residual < 1e−6), побитовая воспроизводимость при фиксированном сиде.
 Стоимость шага: d=512 — ~2 мс, d=4096 — ~16 мс (1024 выстрела).
 
+## Zero-Storage Streaming Learning Engine (v0.3.0, RQ6 — Active Inference)
+
+```text
+Веб-текст/HTML ──strip_html──▶ TF-IDF ε-плотность ──▶ LENS-CSR
+      ──▶ Packed4 (реюз буфера, RAM) ──▶ коммутатор [F, DM]_S
+      ──▶ ActiveInference: η(t) = η₀·e^(−βΣ) Born-шаг ──▶ QCM
+```
+
+`pqc::stream_engine::StreamEngine` — монолитный цикл непрерывного
+фазового инференса и потокового обучения **целиком в RAM**: TF-IDF
+ε-плотность (idf давит сквозной шум потока, отличительные токены
+усиливаются), LENS-дуги сериализуются в сверхплотный контейнер Packed4
+в переиспользуемом буфере (после прогрева — ноль системных аллокаций),
+семантический коммутатор Фокиана измеряет «закрутку» свежего
+свидетельства против памяти (ровно нуль при NO_HITS — детерминированный
+отказ без галлюцинаций), а петля `ActiveInference` делает Born-фазовый
+шаг с адаптивным расписанием `η(t) = η₀·exp(−β·Σ(t))` — сюрприз модели
+сжимает шаг в хаосе и возвращает полную скорость у стационара
+(уравнение субъективного времени `T = dI/dΣ`).
+
+```rust
+# use pqc::stream_engine::StreamEngine;
+let mut engine = StreamEngine::new(512, 0.2, 42)?;
+let rep = engine.ingest("фазовый континуум фазовый триты", 3)?;
+assert_eq!(rep.container_bytes, 0x80 + 512 / 4);  // Packed4 в RAM
+let empty = engine.ingest("… — !!!", 0)?;          // барьер NO_HITS
+assert!(empty.no_hits && empty.fock.normalized == 0.0);
+# Ok::<(), pqc::PqcError>(())
+```
+
+Замеры (release): сквозной ingest d=512 — **~0.32 мс** (DoD 5 мс),
+QCM + коммутатор — **~50 мкс** (бюджет 150 мкс), throughput
+**~1.36M токенов/с**; честный FLOPs-отчёт против плотного
+self-attention — **~1218×** дешевле на том же чанке
+(`examples/active_inference_bench.rs`).
+
 ## Энтанглмент LENS и паритет с Qiskit (v0.1.2, шаг 3 + RQ4)
 
 - **`Entanglement::FromTopology`** — соседние LENS-дуги контейнера
@@ -223,12 +260,30 @@ $ pqw dump state.poler --limit 5
 
 $ pqc run state.poler --shots 8192 --purify 2 --verify --marginals
 $ pqc demo --n 16 --seed 7                   # конвейер без файла
+$ pqc stream --url http://example.com/page --dim 512 --shots 10000
+$ pqc stream --file page.html --steps 8 --json
+$ pqc stream --text "фазовый континуум триты" --dim 512 --out chunk.pqw
+POLER Quantum Core — Zero-Storage Streaming Engine (RQ6)
+source    : --text (0.2 КиБ, text)
+text      : 16 токенов, LENS eps=0.20
+container : d_pol=512 nnz=15 256 B (Packed4 v0.2: 4 трита/байт, magic POLER_Q2)
+buffer    : capacity 256 B (реюз, системных аллокаций после прогрева нет)
+fock      : raw=0.0000 normalized=0.0000 (коммутатор [F, DM]_S свидетельство x память)
+step 1    : surprise Sigma=1.0000  eta=0.0920  (eta0*e^(-beta*Sigma))
+loss      : 0.008724 (9 шагов Active Inference, gamma=0.5)
+qcm       : theory 0.0065  observed 0.0065  gap 0.0001  (256 выстрелов)
+elapsed   : 17.995 мс (сквозной цикл в RAM, диск не затронут)
 ```
+
+`pqc stream` принимает `--url` (zero-dep HTTP/1.1: редиректы, chunked,
+лимит 16 МиБ; https → сохранить страницу и передать `--file`), `--file`,
+`--text` или `--stdin`; флаги `--dim/--epsilon/--shots/--steps/--seed/
+--eta0/--beta/--gamma/--decay/--json/--out`.
 
 ## Тесты
 
-`cargo test --workspace` — **245 тестов + 7 doc-тестов = 252**
-(104 на `pqw` + 141 на `pqc`, включая кросс-тест с Qiskit):
+`cargo test --workspace` — **278 тестов + 9 doc-тестов = 287**
+(104 на `pqw` + 183 на `pqc`, включая кросс-тест с Qiskit):
 
 - известные векторы SHA-256 (NIST) и FNV-1a64;
 - **golden-layout**: побайтовая проверка всех смещений (`0x00..0x80` + payload);
@@ -264,7 +319,22 @@ $ pqc demo --n 16 --seed 7                   # конвейер без файл�
   round-trip, ровно 4x сжатие фазовых блоков, d=65536 → 16 КиБ,
   паритет семантики v1 ↔ v2, матрица повреждений (0b11, паддинг,
   nnz-пересчёт, топология в v2), fuzz 64 случайных состояний,
-  побайтовая воспроизводимость.
+  побайтовая воспроизводимость;
+- **Active Inference** (9): расписание η(Σ) — граничные значения,
+  монотонность и клампинг; сюрприз от честных монет до тритов;
+  адаптивная сходимость ≤ 10 шагов; regime-jump при γ = 0.5;
+  пурификация K = 5 до тритов; строгая Π_Λ; побитовая
+  воспроизводимость расписания;
+- **stream engine** (16): инварианты коммутатора (NO_HITS/стационар/
+  ортогональность/ручная сверка √2), TF-IDF давит сквозной шум,
+  стабильность ёмкости буфера, формула размера контейнера,
+  NO_HITS-барьер, детерминизм, сходимость повторов, смена темы,
+  политики Hold/Decay, рост support, QCM растёт с убеждённостью,
+  латентность d=512 < 5 мс (DoD), QCM+коммутатор < 150 мкс;
+- **CLI stream** (8 интеграционных): сквозной прогон бинарника,
+  JSON-отчёт парсится собственным zero-dep парсером, NO_HITS,
+  https-отказ с подсказкой, ровно один источник, файловый источник +
+  валидный Packed4-дамп, stdin-пайп, отказ соединения без паники.
 
 ## Roadmap
 
@@ -278,9 +348,14 @@ $ pqc demo --n 16 --seed 7                   # конвейер без файл�
 - **v0.2 (здесь)** — ✅ RQ5: петля фазового обучения Born
   (BornOptimizer, Π_Λ, McWeeny-пурификация) + ✅ формат v0.2 Packed4
   (4 дуги/байт, magic POLER_Q2, ровно 4x сжатие фазовых блоков)
-- **дальше** — RQ6: обучение из интернет-потока (батчи → ε-фильтр →
-  сэмплирование), блочный RLE топологии для sparse-Packed4, веса
-  `J = A − Aᵀ` (верхний треугольник), обучаемый паттерн LENS-рёбер
+- **v0.3 (здесь)** — ✅ RQ6: Zero-Storage Streaming Learning Engine —
+  `pqc::stream_engine` (TF-IDF ε-плотность, Packed4 с реюзом буфера,
+  коммутатор Фокиана, NO_HITS-барьер) + `pqc::learn::ActiveInference`
+  (η(t) = η₀·e^(−βΣ), γ = 0.5, McWeeny K = 5, строгая Π_Λ) + CLI
+  `pqc stream` с zero-dep HTTP; сквозной цикл d=512 ≈ 0.32 мс
+- **дальше** — блочный RLE топологии для sparse-Packed4, веса
+  `J = A − Aᵀ` (верхний треугольник), обучаемый паттерн LENS-рёбер,
+  обрезка мёртвых дуг (decay ниже порога), FFI/gym-интерфейс петли
 
 ## License
 
