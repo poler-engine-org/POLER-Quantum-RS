@@ -1,13 +1,15 @@
 # POLER-Quantum-RS
 
-**`.poler` / `.pqw` — POLER Quantum Weights.** Бинарный формат фазовых весов
-POLER[Ψ] и Rust-ядро экосистемы [POLER-Quantum](https://github.com/Kotokvit/POLER-Quantum).
-Первый кирпич **RQ1** из `rust-core-roadmap.md`: бинарный формат состояния —
-контракт, общий для инференса и обучения.
+**`.poler` / `.pqw` — POLER Quantum Weights + POLER Quantum Core.** Бинарный формат
+фазовых весов POLER[Ψ] и вычислительное ядро на Rust — экосистема
+[POLER-Quantum](https://github.com/Kotokvit/POLER-Quantum).
+Два кирпича **RQ1** из `rust-core-roadmap.md`: контейнер состояния
+(`pqw`) и statevector-движок с Born-сэмплированием (`pqc`).
 
-Крейт `pqw` собирается **без единой внешней зависимости** — ни serde, ни
-memmap2, ни libc: SHA-256 (FIPS 180-4), FNV-1a64 и mmap реализованы внутри,
-финальный бинарник автономен и воспроизводим.
+Оба крейта собираются **без единой внешней зависимости** — ни serde, ни
+memmap2, ни faer, ни rand: SHA-256 (FIPS 180-4), FNV-1a64, mmap,
+xoshiro256++ и SIMD-ядра реализованы внутри, финальный бинарник
+автономен и воспроизводим.
 
 ## Почему не GGUF / SafeTensors / .pt
 
@@ -76,6 +78,52 @@ let deep = reader.purify_steps(5);         // глубокая очистка п
 let residual = reader.mcweeny_residual();  // подпись из заголовка
 ```
 
+## Вычислительное ядро `pqc` (v0.1.1, RQ1)
+
+Statevector-движок с анзацем `R_y(arccos p)` и Born-сэмплированием поверх
+контейнера — полностью независимый исполняемый бинарник без Python и Qiskit.
+Ключевое тождество: **собственное значение McWeeny `λ = (1+p)/2` — это
+P(b = 0)**, а `P(b = 1) = (1−p)/2`; очистка McWeeny заостряет
+Born-распределение к детерминированным битам.
+
+| Движок | Условие | Память | Выстрел |
+|---|---|---|---|
+| `Statevector` | `d_pol ≤ 20` (настраивается) | `2^d_pol × 16 B` | `O(d_pol)` |
+| `PhaseAnsatz` | любое `d_pol` | `O(nnz)` | `O(nnz + d_pol/64)` |
+
+LENS-пропуски декодируются как честные монеты (фон), хранимые дуги —
+спайки; фоновый вес сэмплируется popcount-трюком (`Binomial(64, ½)` за
+одно случайное слово). Ядра авто-векторизуются (блочный обход пар
+`(i, i + 2^q)`), параллельность — детерминированный fork-join на
+`std::thread` без rayon.
+
+```rust
+use pqc::{Ansatz, LoadOptions, Rng};
+use pqw::{PqwReader, PqwWriter};
+
+let bytes = PqwWriter::new(12)?.add_phase(1, -1.0)?.to_bytes()?;
+let reader = PqwReader::from_bytes(&bytes)?;
+let ansatz = Ansatz::from_reader(&reader, &LoadOptions::default())?;
+let mut rng = Rng::seed_from_u64(42);
+let report = ansatz.sample(&mut rng, 1024, 8)?;   // Born: топ-K + маргиналы
+```
+
+Замеры (2 vCPU, release): анзац 2²⁰ амплитуд — 16 мс; 100k выстрелов —
+13 мс; product-движок d=65536, 10k выстрелов — 45 мс. Полная спецификация —
+[`docs/quantum-core.md`](docs/quantum-core.md).
+
+```console
+$ pqw gen state.poler 4096 512 --eps 0.05   # контейнер
+$ pqc run state.poler --shots 4096          # Born-сэмплирование
+engine    : product (d_pol=4096, nnz=477)
+shots     : 4096  seed: 42  distinct: 189
+hamming weight: mean 2044.19 (theory 2044.69)  var 962.54 (theory 982.37)
+
+$ pqc demo --n 12                            # полный конвейер в памяти
+engine    : statevector (12 qubits, 4096 amplitudes)
+top-8 исходов:  |001110001110⟩  count 94  p̂=0.0229  P=0.0207
+```
+
 ## CLI
 
 ```console
@@ -91,11 +139,14 @@ $ pqw dump state.poler --limit 5
          0  -1     25   -0.396825      1.978852
          6  +1     63    1.000000      0.000000
         ...
+
+$ pqc run state.poler --shots 8192 --purify 2 --verify --marginals
+$ pqc demo --n 16 --seed 7                   # конвейер без файла
 ```
 
 ## Тесты
 
-`cargo test` — **66 тестов + 2 doc-теста**:
+`cargo test` — **152 теста + 5 doc-тестов** (68 на `pqw` + 89 на `pqc`):
 
 - известные векторы SHA-256 (NIST) и FNV-1a64;
 - **golden-layout**: побайтовая проверка всех смещений (`0x00..0x80` + payload);
@@ -104,13 +155,21 @@ $ pqw dump state.poler --limit 5
 - roundtrip в границах квантилизации (случайные состояния, d = 512…65537);
 - zero-copy: заимствование фаз и индексов без копирования;
 - McWeeny: подпись заголовка == пересчёт, сходимость, сохранение тритов;
-- mmap-сценарий: запись → отображение → разбор → верификация.
+- mmap-сценарий: запись → отображение → разбор → верификация;
+- **паритет с аналитикой** (26): тензорная структура R_y, состояние Белла,
+  анзац из фаз против формулы произведения амплитуд — допуск 1e-12;
+- **статистика Born** (14): равномерность и согласие с теорией в 5σ,
+  product-движок против statevector-моментов, фон = Binomial(d, ½);
+- **мост pqw → pqc** (12): LENS-фон, McWeeny-заострение, порча payload,
+  mmap end-to-end, побитовая воспроизводимость;
+- ГПСЧ: потоки, jump, равномерность, покрытие всех 64 бит.
 
 ## Roadmap
 
-- **v0.1 (здесь)** — формат v1 + CLI + mmap + McWeeny-модуль
-- **RQ1** — faer/SIMD-ядро: statevector, анзац `Ry(arccos p)`, Born sampling;
-  паритет с qiskit-прототипом < 1e-12; стриминг состояний из poler-engine
+- **v0.1 (pqw)** — формат v1 + CLI + mmap + McWeeny-модуль
+- **v0.1.1 (pqc, здесь)** — ✅ ядро RQ1: statevector, анзац `Ry(arccos p)`,
+  Born sampling, два движка, SIMD-ядра без зависимостей
+- **RQ4** — паритет с qiskit < 1e-12 на кросс-наборе схем
 - **RQ2** — ✅ выполнена в [POLER-Quantum v1.1.0](https://github.com/Kotokvit/POLER-Quantum) (Python)
 - **v0.2 (идеи)** — режим без кривизны (4 дуги/байт), блочный RLE топологии,
   хранение антисимметричных весов `J = A − Aᵀ` (верхний треугольник)
