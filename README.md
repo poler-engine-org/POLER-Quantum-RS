@@ -263,6 +263,12 @@ $ pqc demo --n 16 --seed 7                   # конвейер без файл�
 $ pqc stream --url http://example.com/page --dim 512 --shots 10000
 $ pqc stream --file page.html --steps 8 --json
 $ pqc stream --text "фазовый континуум триты" --dim 512 --out chunk.pqw
+$ pqc train --corpus ~/corpus --epsilon 0.05 --block 8192 \
+           --fingerprint cpu_phase_fingerprint.bin --out state.pqw
+POLER Quantum Core — Dense LENS Trainer (RQ8)
+corpus    : ~/corpus (531 файлов, 11.5 МиБ)
+engine    : d_pol=4096, eps=0.05, block=8192 B, shots=20000, steps=10, seed=42
+learned   : nnz_lens=2240 дуг (union support=2240), плотность 54.69% от d_pol=4096
 POLER Quantum Core — Zero-Storage Streaming Engine (RQ6)
 source    : --text (0.2 КиБ, text)
 text      : 16 токенов, LENS eps=0.20
@@ -315,10 +321,26 @@ $ pqc inspect state.pqw --dot lens.dot   # Graphviz: dot -Tsvg lens.dot
 payload digest SHA-256 Trunc-24 (OK/FAIL), McWeeny-невязка записанная
 и пересчитанная по дугам.
 
+### `pqc train` — плотный LENS-граф и накопительная память (v0.3.2)
+
+`pqc stream` создаёт движок на один вызов: память между запусками CLI
+не накапливается, а `--out` пишет контейнер последнего чанка. `pqc train`
+держит **один движок на весь корпус**: блоки (`--block`, по умолчанию
+8 КиБ) льются подряд, дуги объединяются (union support), а снапшот
+сериализует именно **накопленную память** `engine.model()` — в чекпоинт
+`.pqw` и сырой Packed4-отпечаток `--fingerprint` (тот самый снимок
+фазовой памяти, как `cpu_phase_fingerprint.bin`). Снапшоты обновляются
+каждые `--snapshot-every` блоков — состояние файла можно мониторить
+на живую (`pqc inspect`, hexdump, radare2) прямо во время обучения.
+
+Плотность регулируется порогом: ε=0.20 на микрочанках даёт ~10 дуг
+(разреженный фон), ε=0.05 на блоках 8 КиБ — сотни и тысячи дуг
+(кристаллическая решётка, насыщение ~55% d_pol на корпусе 11.5 МиБ).
+
 ## Тесты
 
-`cargo test --workspace` — **312 тестов**
-(205 на `pqc`, включая 7 doc-тестов + 107 на `pqw`, включая 3 doc):
+`cargo test --workspace` — **317 тестов**
+(210 на `pqc`, включая 7 doc-тестов + 107 на `pqw`, включая 3 doc):
 
 - известные векторы SHA-256 (NIST) и FNV-1a64;
 - **golden-layout**: побайтовая проверка всех смещений (`0x00..0x80` + payload);
@@ -337,6 +359,8 @@ payload digest SHA-256 Trunc-24 (OK/FAIL), McWeeny-невязка записан
 - **inspect** (25): детект v1/v2/raw-Packed4/opaque, точные позиции дуг
   сырого пакета, вердикты structured/encrypted-like, порча v2-payload
   с сохранением nnz → digest FAIL, DOT и JSON собственным парсером;
+- **train** (3): накопительный union support двух файлов, валидность
+  чекпоинта и отпечатка (magic + nnz @ 0x60), JSON-отчёт, коды ошибок;
 - ГПСЧ: потоки, jump, равномерность, покрытие всех 64 бит;
 - **zero-storage стриминг** (7): конвейер текст → контейнер → Born → QCM
   на обоих движках, латентность d=512 < 2 мс, детерминизм, CZ-инвариант;

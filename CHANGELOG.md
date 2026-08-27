@@ -4,6 +4,51 @@
 Формат следует [Keep a Changelog](https://keepachangelog.com/ru/1.1.0/),
 версионирование — [SemVer](https://semver.org/lang/ru/).
 
+## [0.3.2] — RQ8: `pqc train` — плотный LENS-граф и накопительная память
+
+### Добавлено
+
+**CLI `pqc train` (накопительное глубокое обучение):**
+
+- Один движок `StreamEngine` на весь корпус: блоки `--block` Б (по
+  умолчанию 8 КиБ) льются подряд, union support дуг накапливается
+  между блоками — против «затирания памяти последним чанком» в
+  `pqc stream` (движок там создаётся заново на каждый вызов, а `--out`
+  пишет контейнер свидетельства последнего чанка);
+- Снапшот сериализует именно **накопленную память** `engine.model()`:
+  чекпоинт `--out` (.pqw) + сырой Packed4-отпечаток `--fingerprint`
+  (формат `cpu_phase_fingerprint.bin`);
+- Живой мониторинг: `--snapshot-every N` блоков обновляет файлы на
+  диске; состояние отпечатка читается проф-утилитами (`pqc inspect`,
+  hexdump, radare2) прямо во время обучения;
+- Телеметрия `--log` (по файлам: tokens/blocks/loss/nnz/support),
+  `--json`-отчёт, `--corpus DIR` (рекурсивный обход, 29 текстовых
+  расширений, файлы ≤ 8 МиБ) или `--stdin`;
+- Плотный режим по умолчанию: ε=0.05, блок 8 КиБ, d_pol=4096,
+  shots=20000, steps=10.
+
+**Эксперимент «плотный снимок» (корпус 531 файл / 11.5 МиБ):**
+
+- `cpu_phase_fingerprint.bin`: nnz 10 → **2240 дуг** (54.69% d_pol,
+  1180 × −1 / 1060 × +1), энтропия 0.098 → **6.10 бит/байт**,
+  вердикт crypto-recon: structured → **compressed**;
+- Живой монитор `pqc inspect --json` каждые 2.5 с: 216 замеров,
+  кривая роста nnz и насыщение (плато) — `fingerprint_monitor.jsonl`;
+- `pqc unfurl dense_learned_state.pqw` — AOT-развертка плотного
+  аттрактора в живой Rust-синтаксис (125 Б морфем: `fn`, `let`,
+  `impl`, `i64`, `psi`, `fock`, `self`...);
+- График: `download/lens_phase_map_comparison.png` (квантовый фон →
+  кристаллическая решётка), `lens_training_dynamics.png`,
+  `lens_graph_dense_sfdp.png` (2240 узлов).
+
+### Тесты
+
+- 3 новых интеграционных (`tests/train_cli.rs`): накопление union
+  support двух файлов, валидность чекпоинта/отпечатка (magic
+  `POLER_Q2`, version 2, nnz @ 0x60), JSON-отчёт, коды ошибок
+  (usage 2 / пустой корпус 1). Всего в воркспейсе 317
+  (pqc 210 + pqw 107).
+
 ## [0.3.1] — pqc inspect + RQ7-Alpha: AOT SyntaxUnfolder, CPU Phase Fingerprint, Deep/Internet Training
 
 ### Добавлено (RQ7-Alpha, от 6c4d4cd)
