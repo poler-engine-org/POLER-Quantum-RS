@@ -5,26 +5,27 @@
 > Поле `commit` — якорь на момент записи; истинный HEAD всегда смотреть
 > `git log -1 --oneline`. Формат — строгий `key: value` для машинного парсинга.
 
-updated_utc: 2026-08-29T21:30:00Z
+updated_utc: 2026-08-29T23:55:00Z
 repo: POLER-Quantum-RS
 branch: main
-commit: (см. git log -1 — v0.8.0)
-tag: v0.8.0
+commit: (см. git log -1 — v0.9.0)
+tag: v0.9.0
 pushed: true
-tests: 583/583 (cargo test --workspace, v0.8.0, 0 warnings)
-current_rq: RQ18
-rq_status: реализовано в v0.8.0 — нелинейная архетипическая алгебра ⊗_ε: мышление архетипами, а не плоскими корреляциями. pqc::archetype_lattice — оператор c = Π_Λ(R + ε·(a∧b)) прямо в 2-битных тритах Packed4: SWAR-интерференция (конфликтные лейны Pos⊕Neg=0b11 гасятся маской, согласие резонирует, суперпозиция прозрачна — ноль FPU на дугу, ноль аллокаций), клин a∧b доказывает таблицу на полосе ε_w ∈ (0,½]; энергетический гейт E = co/min(nnz) ≥ ε — ортогональные архетипы дают ВЕСЬ НУЛЬ (нет ложных ассоциаций). Инварианты ТЗ: идемпотентность a⊗_ε a = a бит-в-бит (тест на случайных решётках), ортогональность→Zero, коммутативность, SWAR≡эталон. Движок: prompt_archetype (TF-IDF→полюса знака, без ГПСЧ) + archetype_bridge (момент ВНИМАНИЯ на пересечении: согласие — инерция полюса, конфликт — вызов памяти; фазы решётки бит-в-бит неприкосновенны — память меняет только born-шаг). L5: уровень 3 born-лотереи TicketSource::Archetype — концептуальный прыжок Flow→Backtrack→Archetype→Kinetic, билеты: конфликт 3 / согласие 2 / прозрачная память 1 (фон метафоры); палиндромный тест: русла J закрыты — первый квант речи из моста. CLI: pqc archetype (мозг⊗промпт / мозг⊗мозг --with, --eps, --json); generate/step/ask/chat: мост по умолчанию, --no-bridge/--bridge-eps, строка «мост ⊗_ε» + JSON-объект bridge
-current_task: — (RQ18 завершён и запушен)
-next_task: кандидаты на RQ19: (a) pqc learn "тема" — протокол интернет-обучения из чата (модель сама формирует 5–10 целевых запросов по теме, zero-dep HTTP-клиент с мимикрией под браузер, потоковый ingest TF-IDF→LENS→born_step_packed4 прямо в Packed4, после чего pqc ask отвечает выученными понятиями; ТЗ от пользователя утверждения ждёт); (b) бенчмарк GF(3)-лавины на больших блоках; (c) качество речи: обучение на реальном корпусе (литература/доки) + оценка связности; (d) архетипическое слияние мозгов: pqc merge A.pqw B.pqw через ⊗_ε с born-консолидацией продукта
+tests: 619/619 (cargo test --workspace, v0.9.0, 0 warnings)
+current_rq: RQ19
+rq_status: реализовано в v0.9.0 — целенаправленный интернет-ингест pqc learn "ТЕМА" --brain F: транспорт с нуля zero-dep — pqc::tlsprim (SHA-256/HMAC/HKDF/ChaCha20/Poly1305/X25519, все векторы RFC; ловушки: позалimbные маски клампа Poly1305, фолд остаточного переноса limb4 ×19, константы 2p 13 hex-цифр), pqc::tls13 (клиент TLS 1.3: единственный набор TLS_CHACHA20_POLY1305_SHA256, key schedule байт-в-бит по трассе RFC 8448 §3, записи §5.2 nonce=iv⊕seq, Finished по транскрипту, KeyUpdate; ловушки: supported_versions в SH без байта длины, padding-разбор по последнему НЕнулевому байту — жадный съедал нули сертификатов), pqc::netfetch (HTTP/1.1: URL, percent-encode, GET, chunked, redirects 301..308, таймауты), pqc::wikisrc (Wikipedia API: list=search + prop=extracts&explaintext — чистый текст без HTML; вежливость UA+300мс+backoff 403/429; язык: кириллица→ru), pqc::learn_net (пайплайн: тема→поиск→страницы→ingest как документы (TF-IDF→LENS→born_step_packed4, русла J+LEXI+⊗_ε растут автоматически)→checkpoint v4; самоуправляемые раунды: топ-новое слово корпуса уточняет запрос — любопытство кристалла; TextSource trait для инъекции источников). CLI pqc learn: --pages/--rounds/--lang/--full/--ask/--dim/--seed/--json/--text (offline без сети). Живой смоук: learn "квантовая механика" → 3 стр. 13КБ → лексикон 399 слов → ask отвечает. Честные границы: сертификаты не верифицируются (нет root store — задокументировано), один источник, частотный поиск без стемминга
+current_task: — (RQ19 завершён и запушен)
+next_task: кандидаты на RQ20: (a) pqc merge A.pqw B.pqw — архетипическое слияние мозгов через ⊗_ε с born-консолидацией продукта (мозг⊗мозг уже умеет pqc archetype — merge доводит до записи контейнера); (b) качество речи: learn на больших корпусах (литература/доки) + оценка связности, повторные ask --learn растят грамматику; (c) GF(3)-лавина на больших блоках шифра; (d) pqw-контейнер: блочный RLE топологии
 blocked_on: —
 tmux_sessions: нет — tmux не установлен и недоступен без root (uid 1001, sudo нет); workaround в контейнере: nohup + лог-файл (фоновый процесс гибнет при смене шелл-сессии — зафиксировано; на сервере обязателен tmux, §2 AGENT.md)
-credentials: ВАЛИДЕН — fine-grained PAT (ротирован 2026-08-29 после RQ17: scope только POLER-Quantum-RS/poler-engine/P3_Engine, 90 дней), файл-хранилище upload/«токен.txt»; подача через /home/z/my-project/scripts/gh-cred-helper.sh; автопроверка живости — в agent_bootstrap.sh (фаза 3). Ротация подтверждена пользователем: API 200, login Kotokvit, poler-engine fetch ab59285 прошёл
+credentials: ВАЛИДЕН — fine-grained PAT с Contents: Read and write (пользователь поправил scope после RQ18; API проверка: permissions.push=true для POLER-Quantum-RS), файл-хранилище upload/«токен.txt»; подача через /home/z/my-project/scripts/gh-cred-helper.sh
 notes: POLER-Quantum-RS v0.8.0 синхронен с GitHub на 2026-08-29; poler-engine (ab59285) и poler-os (c18136e) на GitHub не тронуты этой сессией; workspace-репо /home/z/my-project/.git локальное, НЕ пушить (upload/ с токенами); диск 90–95% — CARGO_INCREMENTAL=0 обязателен, чистить target/debug/incremental при переполнении. КОНТЕКСТ ПОЛЬЗОВАТЕЛЯ: цель «абсолютное превосходство в любой задаче»; RQ18 выбран пользователем из трёх кандидатов (pqc learn / GF(3)-лавина / нелинейная ⊗_ε) — «модель должна мыслить архетипами, находить связи там, где их нет на первый взгляд»; следующий приоритет по чату — pqc learn (интернет-обучение)
 
 ## Последние сессии
 
 | Дата (UTC) | Задача | Результат |
 |---|---|---|
+| 2026-08-29 | RQ19 | v0.9.0: pqc learn — интернет-ингест: TLS 1.3 с нуля (tlsprim+tls13, трасса RFC 8448), HTTP/1.1, Wikipedia API, самоуправляемые раунды; 619/619 |
 | 2026-08-29 | RQ18 | v0.8.0: нелинейная ⊗_ε — archetype_lattice (SWAR в Packed4 + энергогейт), мост внимания, уровень Archetype в лотерее, pqc archetype; 583/583 |
 | 2026-08-29 | ротация токена | fine-grained PAT (3 репо, 90 дней) применён, API 200, все remote обновлены |
 | 2026-08-29 | RQ17 | v0.7.0: L5-генерация — формат v4 (LEXI-лексикон), L5Generator (Born-блуждание по руслам J, направление речи = синтаксис), pqc generate/step/ask/chat с диалоговой памятью; 549/549 |
