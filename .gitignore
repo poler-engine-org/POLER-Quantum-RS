@@ -3,3 +3,4 @@ Cargo.lock.bak
 *.poler
 *.pqw
 !sample/*.poler
+.agent/
