@@ -5,17 +5,17 @@
 > Поле `commit` — якорь на момент записи; истинный HEAD всегда смотреть
 > `git log -1 --oneline`. Формат — строгий `key: value` для машинного парсинга.
 
-updated_utc: 2026-08-28T16:58:00Z
+updated_utc: 2026-08-28T17:30:00Z
 repo: POLER-Quantum-RS
 branch: main
-commit: v0.3.8 (истинный HEAD — git log -1)
-tag: v0.3.8
-pushed: true (main + тег, 2026-08-28)
-tests: 425/425 (cargo test --workspace, v0.3.8, 0 warnings)
-current_rq: RQ13
-rq_status: реализовано в v0.3.7 — трит-схема GF(3) (прецессия по руслам J + решётке LENS, Packed4, лавина 66.7% трит/бит, расширение ×42.7 → ×1.34)
-current_task: v0.3.8 — протокол Context-Free Resilience (AGENT.md + этот файл + scripts/agent_bootstrap.sh)
-next_task: выбрать с пользователем: (a) mmap-разворот тритов в углы Блоха для обучения — θ = arccos на лету, L1-регистры; (b) бенчмарк лавины GF(3) на больших блоках (фоном в tmux); (c) L5-нагрузка сетевых потоков; (d) нелинейная ⊗_ε
+commit: (см. git log -1 — v0.4.0)
+tag: v0.4.0
+pushed: true
+tests: 447/447 (cargo test --workspace, v0.4.0, 0 warnings)
+current_rq: RQ14
+rq_status: реализовано в v0.4.0 — mmap-разворот тритов в углы Блоха (LUT θ∈{0,π/2,π}, стриминг ×11 быстрее материализации, born-шаг в 2-битных регистрах, CLI pqc bloch)
+current_task: — (RQ14 завершён)
+next_task: выбрать с пользователем: (a) бенчмарк лавины GF(3) на больших блоках; (b) L5-нагрузка сетевых потоков; (c) зеркало poler-os; (d) нелинейная ⊗_ε; (e) интеграция born_step_packed4 в pqc train (квантованный curriculum)
 blocked_on: —
 tmux_sessions: нет — tmux не установлен и недоступен без root (uid 1001, sudo нет); workaround в контейнере: nohup + лог-файл (фоновый процесс гибнет при смене шелл-сессии — зафиксировано сегодня; на сервере обязателен tmux, §2 AGENT.md)
 credentials: ВАЛИДЕН — файл-хранилище upload/«гитхаб токен .txt» (API 200, login Kotokvit, проверен 2026-08-28); подача через /home/z/my-project/scripts/gh-cred-helper.sh; автопроверка живости — в agent_bootstrap.sh (фаза 3); при ротации пользователь перезаписывает файл один раз
@@ -25,6 +25,7 @@ notes: POLER-Quantum-RS v0.3.8 + poler-engine + poler-os синхронны с G
 
 | Дата (UTC) | Задача | Результат |
 |---|---|---|
+| 2026-08-28 | RQ14 | v0.4.0: trit_bloch + bloch_stream + pqc bloch; 447/447; стриминг ×11 |
 | 2026-08-28 | Context-Free Resilience | v0.3.8: AGENT.md + AGENT_STATE.md + agent_bootstrap.sh (автопроверка токена); 425/425; запушено |
 | 2026-08-28 | токен-инцидент | живой токен перезаписан в файл-хранилище (там лежал устаревший) — push разблокирован |
 | 2026-08-28 | sync-remotes | v0.3.7 запушен; poler-engine merge 36b825f (601 тест); утечки токена не было |

@@ -4,11 +4,11 @@ version = 4
 
 [[package]]
 name = "pqc"
-version = "0.3.8"
+version = "0.4.0"
 dependencies = [
  "pqw",
 ]
 
 [[package]]
 name = "pqw"
-version = "0.3.8"
+version = "0.4.0"
