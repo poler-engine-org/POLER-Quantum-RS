@@ -8,7 +8,7 @@
 updated_utc: 2026-08-30T02:30:00Z
 repo: POLER-Quantum-RS
 branch: main
-commit: RQ22-v1.2.0 (см. git log -1)
+commit: d7708a3 (v1.2.0)
 tag: v1.2.0
 pushed: true
 tests: 707/707 (cargo test --workspace, v1.2.0, 0 warnings)
