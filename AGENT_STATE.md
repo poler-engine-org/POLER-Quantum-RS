@@ -8,7 +8,7 @@
 updated_utc: 2026-08-30T01:30:00Z
 repo: POLER-Quantum-RS
 branch: main
-commit: RQ21-v1.1.0 (см. git log -1)
+commit: c47f6dc (v1.1.0)
 tag: v1.1.0
 pushed: true
 tests: 674/674 (cargo test --workspace, v1.1.0, 0 warnings)
